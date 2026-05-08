@@ -19,6 +19,7 @@ module Liquid
     end
 
     @data : Hash(String, Any)
+    @counters = Hash(String, Int32).new(0)
 
     # :nodoc:
     # These values are used/reused when calling filters in a expression using this context.
@@ -80,11 +81,30 @@ module Liquid
       Any.new(nil)
     end
 
+    def increment_counter(name : String) : Int32
+      val = @counters[name]
+      @counters[name] = val + 1
+      val
+    end
+
+    def decrement_counter(name : String) : Int32
+      @counters[name] -= 1
+      @counters[name]
+    end
+
+    def counter(name : String) : Int32
+      @counters[name]
+    end
+
     # Fetch a variable from context, add `UndefinedVariable` error if the variable isn't found and behave according the
     # error mode.
     def get(var : String) : Any
       value = @data[var]?
       return value if value
+
+      if @counters.has_key?(var)
+        return Any.new(@counters[var])
+      end
 
       add_error(UndefinedVariable.new(var))
     end

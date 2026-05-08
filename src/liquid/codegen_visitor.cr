@@ -154,5 +154,13 @@ module Liquid
       node.children.each &.accept self
       pop
     end
+
+    def visit(node : Increment)
+      to_io %(Liquid::Block::Increment.new("#{escape node.var_name}"))
+    end
+
+    def visit(node : Decrement)
+      to_io %(Liquid::Block::Decrement.new("#{escape node.var_name}"))
+    end
   end
 end

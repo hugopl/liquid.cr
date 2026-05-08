@@ -35,8 +35,6 @@ liquid.golden.date_filter timestamp integer
 liquid.golden.date_filter timestamp string
 liquid.golden.date_filter undefined argument
 liquid.golden.date_filter well formed string
-liquid.golden.decrement_tag increment and decrement named counter
-liquid.golden.decrement_tag named counter
 liquid.golden.default_filter missing argument
 liquid.golden.echo_tag access an array item by index
 liquid.golden.echo_tag access an array item by negative index
@@ -134,11 +132,6 @@ liquid.golden.include_tag some keyword arguments without leading comma
 liquid.golden.include_tag some keyword arguments with range literal
 liquid.golden.include_tag string literal name
 liquid.golden.include_tag use globals from outer scope
-liquid.golden.increment_tag assign and increment
-liquid.golden.increment_tag incrementing counter renders before incrementing
-liquid.golden.increment_tag multiple named counters
-liquid.golden.increment_tag named counter
-liquid.golden.increment_tag named counters are in scope for subsequent expressions
 liquid.golden.inline_comment_tag can't comment tags
 liquid.golden.inline_comment_tag empty
 liquid.golden.inline_comment_tag liquid tag

@@ -91,21 +91,11 @@ module Liquid
     end
 
     def visit(node : Increment)
-      var = @data.get node.var_name
-      if var && (num = var.as_i?)
-        @data.set node.var_name, num + 1
-      else
-        @data.set node.var_name, 1
-      end
+      @io << @data.increment_counter(node.var_name)
     end
 
     def visit(node : Decrement)
-      var = @data.get node.var_name
-      if var && (num = var.as_i?)
-        @data.set node.var_name, num - 1
-      else
-        @data.set node.var_name, -1
-      end
+      @io << @data.decrement_counter(node.var_name)
     end
 
     def visit(node : ExpressionNode)
