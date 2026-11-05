@@ -89,6 +89,28 @@ describe Expression do
   it_evaluates("true or false and false", Context.new, true)
   it_evaluates("true and false and false or true", Context.new, false)
 
+  # Literals and lookups
+  it_evaluates("'fo\\'o'", Context.new, "fo'o")
+  it_evaluates("9999999999", Context.new, 9999999999_i64)
+  it_evaluates("(1..3)", Context.new, Any{1, 2, 3}.raw)
+  it_evaluates("(a .. 3)", Context{"a" => "2"}, Any{2, 3}.raw)
+  it_evaluates("blank", Context{"blank" => "x"}, "")
+  it_evaluates("blank.x", Context{"blank" => Any{"x" => 1}}, 1)
+  it_evaluates("['a b']", Context{"a b" => 1}, 1)
+  it_evaluates("[a]", Context{"a" => "b", "b" => 1}, 1)
+  it_evaluates("a-b.size", Context{"a-b" => Any{1, 2}}, 2)
+  it_evaluates("a.first", Context{"a" => "hey"}, "h")
+  it_evaluates("a == empty", Context{"a" => Any{} of String => Any}, true)
+  it_evaluates("a == blank", Context{"a" => " "}, true)
+  it_evaluates("a contains 'k'", Context{"a" => Any{"k" => 1}}, true)
+  it_evaluates("'abc' < 'acb'", Context.new, true)
+
+  it "raises SyntaxError on invalid expressions" do
+    expect_raises(SyntaxError) { Expression.new("foo..bar") }
+    expect_raises(SyntaxError) { Expression.new("foo.['bar']") }
+    expect_raises(SyntaxError) { Expression.new("a not b") }
+  end
+
   # filters
   it_evaluates("'a, b, c' | split: ', ' | join '-' | upcase", Context.new, "A-B-C")
 

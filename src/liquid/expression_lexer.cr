@@ -1,4 +1,3 @@
-require "string_scanner"
 require "./exceptions"
 
 module Liquid
@@ -37,24 +36,25 @@ module Liquid
 
     private IDENTIFIER = /[a-zA-Z_][\w-]*\??/
     private NUMBER     = /-?\d+(\.\d+)?/
-    private WHITESPACE = /\s*/
 
     def self.tokenize(expr : ::String) : Array(Token)
       new(expr).tokenize
     end
 
     def initialize(@expr : ::String)
-      @scanner = StringScanner.new(@expr)
+      # Current byte position.
+      @pos = 0
     end
 
     def tokenize : Array(Token)
       tokens = [] of Token
-      scanner = @scanner
       loop do
-        scanner.skip(WHITESPACE)
-        break if scanner.eos?
+        while (byte = @expr.byte_at?(@pos)) && byte.unsafe_chr.ascii_whitespace?
+          @pos += 1
+        end
+        break if @pos >= @expr.bytesize
 
-        start = scanner.offset
+        start = @pos
         char = @expr.byte_at(start).unsafe_chr
         case char
         when '.'
@@ -97,7 +97,7 @@ module Liquid
           end
         when '\'', '"'
           value = parse_string(char)
-          tokens << Token.new(Kind::String, value, start, scanner.offset)
+          tokens << Token.new(Kind::String, value, start, @pos)
         else
           if char.ascii_number?
             tokens << scan_token(Kind::Number, NUMBER, start)
@@ -116,13 +116,14 @@ module Liquid
     end
 
     private def token(kind : Kind, value : ::String, start : Int32, size : Int32) : Token
-      @scanner.offset = start + size
+      @pos = start + size
       Token.new(kind, value, start, start + size)
     end
 
     private def scan_token(kind : Kind, regex : Regex, start : Int32) : Token
-      value = @scanner.scan(regex) || raise_unexpected_char(start)
-      Token.new(kind, value, start, @scanner.offset)
+      match = regex.match_at_byte_index(@expr, start, Regex::MatchOptions::ANCHORED) || raise_unexpected_char(start)
+      @pos = match.byte_end(0)
+      Token.new(kind, match[0], start, @pos)
     end
 
     private def raise_unexpected_char(pos : Int32) : NoReturn
@@ -132,7 +133,7 @@ module Liquid
 
     # Parse a quoted string, the escape sequences `\n`, `\t` and an escaped quote are supported.
     private def parse_string(limit : Char) : ::String
-      reader = Char::Reader.new(@expr, @scanner.offset + 1)
+      reader = Char::Reader.new(@expr, @pos + 1)
       completed = false
       handling_escape = false
       string = ::String.build do |str|
@@ -159,7 +160,7 @@ module Liquid
       end
       raise SyntaxError.new("Unterminated string literal.") unless completed
 
-      @scanner.offset = reader.pos
+      @pos = reader.pos
       string
     end
   end
