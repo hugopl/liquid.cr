@@ -5,7 +5,7 @@ module Liquid::Block
     getter var_name : String
 
     def initialize(content @var_name)
-      raise SyntaxError.new if @var_name !~ VARIABLE_SIGNATURE
+      raise SyntaxError.new("Invalid variable name: #{@var_name}.") unless @var_name.matches?(/\A[\w-]+\??\z/)
     end
   end
 end

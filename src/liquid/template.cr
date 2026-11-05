@@ -35,6 +35,10 @@ module Liquid
     def render(data, io : IO) : Nil
       visitor = RenderVisitor.new data, io, @template_path
       visitor.visit @root
+    rescue ex : BreakInterrupt | ContinueInterrupt
+      # Interrupts outside a loop just stop the rendering, inside a loop (e.g. from an included template) they are
+      # handled by the loop.
+      raise ex if data.registers.loop_depth > 0
     end
 
     def render(ctx : Context) : String

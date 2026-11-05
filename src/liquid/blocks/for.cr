@@ -1,52 +1,155 @@
 require "./block"
+require "./else"
 require "../context"
+require "../expression"
 
 module Liquid::Block
-  # Inside of a for-loop block, you can access some special variables:
-  # Variable      	Description
-  # loop.index 	    The current iteration of the loop. (1 indexed)
-  # loop.index0   	The current iteration of the loop. (0 indexed)
-  # loop.revindex 	The number of iterations from the end of the loop (1 indexed)
-  # loop.revindex0 	The number of iterations from the end of the loop (0 indexed)
-  # loop.first    	True if first iteration.
-  # loop.last     	True if last iteration.
-  # loop.length    	The number of items in the sequence.
-  class For < BeginBlock
-    GLOBAL  = /(?<var>\w+) in (?<range>.+)/
-    RANGE   = /(?<start>[0-9]+)\.\.(?<end>[0-9]+)/
-    VARNAME = /^\s*(?<varname>#{VAR})\s*$/
+  # Collection expression used by `for` and `tablerow` tags, it can be a range literal like `(1..foo)` or any
+  # other expression.
+  struct LoopCollection
+    private RANGE = /\A\(?\s*(.+?)\s*\.\.\s*(.+?)\s*\)?\z/
 
+    getter markup : String
+    @range : Tuple(Expression, Expression)?
+    @expression : Expression?
+
+    def initialize(@markup : String)
+      if (@markup.starts_with?('(') && @markup.ends_with?(')')) || @markup.matches?(/\A[^'"]+\.\.[^'"]+\z/)
+        match = @markup.match(RANGE)
+        raise SyntaxError.new("Invalid range expression: #{@markup}.") if match.nil?
+
+        @range = {Expression.new(match[1]), Expression.new(match[2])}
+      else
+        @expression = Expression.new(@markup)
+      end
+    end
+
+    # Evaluates the collection, returning nil if it's undefined/nil.
+    def eval(ctx : Context) : Array(Any)?
+      if range = @range
+        first = range_bound(range[0].eval(ctx))
+        last = range_bound(range[1].eval(ctx))
+        return (first..last).map { |i| Any.new(i) }
+      end
+
+      value = @expression.not_nil!.eval(ctx)
+      raw = value.raw
+      case raw
+      when Nil
+        nil
+      when Array
+        raw
+      when Hash
+        raw.map { |key, val| Any{key, val} }
+      when String
+        raw.empty? ? [] of Any : [value]
+      when Range
+        raw.to_a.map { |i| Any.new(i) }
+      else
+        [] of Any
+      end
+    end
+
+    private def range_bound(value : Any) : Int32
+      raw = value.raw
+      case raw
+      when Int    then raw.to_i
+      when Float  then raw.to_i
+      when String then raw.to_i?(strict: false) || 0
+      else             0
+      end
+    end
+  end
+
+  # Parsed markup of `for` and `tablerow` tags: `var in collection [reversed] [attr: value[,] ...]`.
+  struct LoopMarkup
+    private SYNTAX    = /\A\s*([\w-]+\??)\s+in\s+/
+    private FRAGMENT  = /\A(?:[^\s,|'"]|"[^"]*"|'[^']*')+/
+    private REVERSED  = /\A\s*reversed\b/
+    private ATTRIBUTE = /([\w-]+)\s*:\s*("[^"]*"|'[^']*'|[^\s,]+)/
+
+    getter markup : String
     getter loop_var : String
-    getter loop_over : String | Range(Int32, Int32)
+    getter collection : LoopCollection
+    getter? reversed = false
+    getter attributes = Hash(String, String).new
 
-    def initialize(@loop_var, begin s, end e)
-      @loop_over = s..e
+    def initialize(@markup : String, tag_name : String)
+      match = markup.match(SYNTAX)
+      raise SyntaxError.new("Invalid #{tag_name} node: #{markup}.") if match.nil?
+
+      @loop_var = match[1]
+      rest = markup[match.end..]
+      collection_markup = if rest.starts_with?('(')
+                            close = rest.index(')')
+                            raise SyntaxError.new("Invalid #{tag_name} node: #{markup}.") if close.nil?
+                            rest[0..close]
+                          else
+                            rest[FRAGMENT]? || raise SyntaxError.new("Invalid #{tag_name} node: #{markup}.")
+                          end
+      @collection = LoopCollection.new(collection_markup)
+      rest = rest[collection_markup.size..]
+      if reversed = rest.match(REVERSED)
+        @reversed = true
+        rest = rest[reversed.end..]
+      end
+      rest.scan(ATTRIBUTE) do |attr|
+        @attributes[attr[1]] = attr[2]
+      end
     end
 
-    def initialize(@loop_var, @loop_over)
+    # Name of the loop used as key for offset:continue and as forloop.name.
+    def name : String
+      "#{@loop_var}-#{@collection.markup}"
     end
+  end
+
+  # Inside of a for-loop block, you can access some special variables using `forloop` object, see `ForLoop`.
+  class For < BeginBlock
+    getter loop : LoopMarkup
+    getter else : Else?
+    getter limit : Expression?
+    getter offset : Expression?
+    getter? offset_continue = false
 
     def initialize(content : String)
-      if gmatch = content.match(GLOBAL)
-        @loop_var = gmatch["var"]
-        @loop_over = if rmatch = gmatch["range"].match(RANGE)
-                       rmatch["start"].to_i..rmatch["end"].to_i
-                     elsif rmatch = gmatch["range"].match VARNAME
-                       rmatch["varname"]
-                     else
-                       raise SyntaxError.new("Invalid for node: #{content}.")
-                     end
-      else
-        raise SyntaxError.new("Invalid for node: #{content}.")
+      @loop = LoopMarkup.new(content, "for")
+      @loop.attributes.each do |key, value|
+        case key
+        when "limit"
+          @limit = Expression.new(value)
+        when "offset"
+          if value == "continue"
+            @offset_continue = true
+          else
+            @offset = Expression.new(value)
+          end
+        end
       end
+    end
+
+    delegate markup, loop_var, collection, reversed?, to: @loop
+
+    def <<(node : Node)
+      if else_node = @else
+        else_node << node
+      else
+        @children << node
+      end
+    end
+
+    def <<(node : Else)
+      raise SyntaxError.new("Multiple Else in For statement.") if @else
+
+      @else = node
     end
 
     def inspect(io : IO)
       inspect(io) do
-        io << @loop_var.inspect
-        loop_over = @loop_over
-        io << " in " << loop_over.inspect if loop_over
+        io << markup.inspect
       end
     end
+
+    def_equals markup, @children, @else
   end
 end

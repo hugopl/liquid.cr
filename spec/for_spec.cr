@@ -12,7 +12,7 @@ describe "for tag" do
   it_renders("{% for e in foo %}{{ forloop.length }};{% endfor %}", "2;2;", CTX)
   it_renders("{% for e in foo %}{{ forloop.rindex }};{% endfor %}", "2;1;", CTX)
   it_renders("{% for e in foo %}{{ forloop.rindex0 }};{% endfor %}", "1;0;", CTX)
-  it_renders("{% for e in foo %}{{ forloop.index }};({% for e in foo %}{{ forloop.parentloop.index }}{{ forloop.index }};{% endfor %}){% endfor %}", "1;(1;2;)2;(1;2;)", CTX)
+  it_renders("{% for e in foo %}{{ forloop.index }};({% for e in foo %}{{ forloop.parentloop.index }}{{ forloop.index }};{% endfor %}){% endfor %}", "1;(11;12;)2;(21;22;)", CTX)
 
   # TODO: for loop parameters
 end

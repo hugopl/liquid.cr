@@ -2,6 +2,7 @@ require "./blocks/assign"
 require "./blocks/block"
 require "./blocks/capture"
 require "./blocks/case"
+require "./blocks/cycle"
 require "./blocks/comment"
 require "./blocks/decrement"
 require "./blocks/else"
@@ -9,10 +10,13 @@ require "./blocks/elsif"
 require "./blocks/expression_node"
 require "./blocks/for"
 require "./blocks/if"
+require "./blocks/ifchanged"
 require "./blocks/include"
 require "./blocks/increment"
+require "./blocks/interrupt"
 require "./blocks/liquid"
 require "./blocks/raw_node"
+require "./blocks/tablerow"
 require "./blocks/unless"
 require "./blocks/when"
 
@@ -26,6 +30,11 @@ module Liquid
   BlockRegister.register "elsif", Liquid::Block::ElsIf, false
   BlockRegister.register "else", Liquid::Block::Else, false
   BlockRegister.register "for", Liquid::Block::For
+  BlockRegister.register "break", Liquid::Block::Break, false
+  BlockRegister.register "continue", Liquid::Block::Continue, false
+  BlockRegister.register "tablerow", Liquid::Block::Tablerow
+  BlockRegister.register "cycle", Liquid::Block::Cycle, false
+  BlockRegister.register "ifchanged", Liquid::Block::IfChanged
   BlockRegister.register "capture", Liquid::Block::Capture
   BlockRegister.register "assign", Liquid::Block::Assign, false
   BlockRegister.register "increment", Liquid::Block::Increment, false

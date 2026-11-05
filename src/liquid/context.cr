@@ -1,5 +1,6 @@
 require "./any"
 require "./blank"
+require "./registers"
 
 module Liquid
   # A `Context` object provides the variables used by the `Template` object. These variables are stored
@@ -31,6 +32,9 @@ module Liquid
     property error_mode : ErrorMode
     # Returns a list of errors found when rendering using this context.
     getter errors = Array(LiquidException).new
+    # :nodoc:
+    # Render state used by tags like `increment`, `cycle` and `for`.
+    getter registers = Registers.new
 
     # Creates a new `Context` with the given *error_mode* and *data*.
     def initialize(@error_mode = :lax, @data = Hash(String, Any).new)
@@ -104,7 +108,7 @@ module Liquid
         value = scope[var]?
         return value if value
       end
-      @data[var]?
+      @data[var]? || @registers.counters[var]?.try { |counter| Any.new(counter) }
     end
 
     # Pushes a new local scope, variables in local scopes have precedence over the variables set by `#set`.

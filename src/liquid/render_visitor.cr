@@ -91,21 +91,17 @@ module Liquid
     end
 
     def visit(node : Increment)
-      var = @data.get node.var_name
-      if var && (num = var.as_i?)
-        @data.set node.var_name, num + 1
-      else
-        @data.set node.var_name, 1
-      end
+      counters = @data.registers.counters
+      value = counters[node.var_name]? || 0
+      counters[node.var_name] = value + 1
+      @io << value
     end
 
     def visit(node : Decrement)
-      var = @data.get node.var_name
-      if var && (num = var.as_i?)
-        @data.set node.var_name, num - 1
-      else
-        @data.set node.var_name, -1
-      end
+      counters = @data.registers.counters
+      value = (counters[node.var_name]? || 0) - 1
+      counters[node.var_name] = value
+      @io << value
     end
 
     def visit(node : ExpressionNode)
@@ -117,25 +113,190 @@ module Liquid
     end
 
     def visit(node : For)
-      ctx = @data.dup
-      loop_over_var = node.loop_over
-      loop_over = if loop_over_var.is_a?(String)
-                    value = Expression.new(loop_over_var).eval(ctx)
-                    value.as_a? || value.as_h? || raise InvalidStatement.new "Can't iterate over #{node.loop_over}"
-                  else
-                    loop_over_var
-                  end
+      registers = @data.registers
+      name = node.loop.name
 
-      visitor = RenderVisitor.new(ctx, @io, @template_path)
-      parentloop = ctx["forloop"]?.try(&.raw).as?(ForLoop)
-      forloop = ForLoop.new(loop_over, parentloop)
+      from = if node.offset_continue?
+               registers.for_offsets[name]? || 0
+             elsif offset = node.offset
+               value = offset.eval(@data)
+               value.raw.nil? ? 0 : (strict_integer(value) || return)
+             else
+               0
+             end
+      collection = node.collection.eval(@data) || [] of Any
+      to = if limit = node.limit
+             value = limit.eval(@data)
+             value.raw.nil? ? nil : (strict_integer(value) || return) + from
+           end
 
-      ctx.set("forloop", forloop)
-      forloop.each do |val|
-        ctx.set(node.loop_var, val)
-        node.children.each(&.accept(visitor))
+      segment = slice_collection(collection, from, to)
+      segment.reverse! if node.reversed?
+      registers.for_offsets[name] = from + segment.size
+
+      visitor = blank_for?(node) ? RenderVisitor.new(@data, IO::Memory.new, @template_path) : self
+      if segment.empty?
+        node.else.try(&.children.each(&.accept(visitor)))
+        return
       end
-      ctx.set("forloop", parentloop)
+
+      forloop = ForLoop.new(name, segment.size, registers.for_stack.last?)
+      with_loop_scope("forloop", forloop) do |scope|
+        registers.for_stack.push(forloop)
+        begin
+          segment.each do |item|
+            scope[node.loop_var] = item
+            interrupted = render_loop_body(node.children, visitor)
+            forloop.increment!
+            break if interrupted
+          end
+        ensure
+          registers.for_stack.pop
+        end
+      end
+    end
+
+    def visit(node : Tablerow)
+      collection = node.collection.eval(@data)
+      return if collection.nil?
+
+      from = (offset = node.offset) ? (lax_integer(offset.eval(@data)) || return) : 0
+      to = (limit = node.limit) ? (lax_integer(limit.eval(@data)) || return) + from : nil
+      segment = slice_collection(collection, from, to)
+      cols = (cols_expr = node.cols) ? (lax_integer(cols_expr.eval(@data)) || return) : segment.size
+
+      tablerowloop = TablerowLoop.new(segment.size, cols)
+      @io << %(<tr class="row1">\n)
+      with_loop_scope("tablerowloop", tablerowloop) do |scope|
+        segment.each do |item|
+          scope[node.loop_var] = item
+          @io << %(<td class="col) << tablerowloop.col << %(">)
+          interrupted = render_loop_body(node.children, self)
+          @io << "</td>"
+          break if interrupted
+
+          if tablerowloop.col_last && !tablerowloop.last
+            @io << %(</tr>\n<tr class="row) << tablerowloop.row + 1 << %(">)
+          end
+          tablerowloop.increment!
+        end
+      end
+      @io << "</tr>\n"
+    end
+
+    def visit(node : Break)
+      raise BreakInterrupt.new
+    end
+
+    def visit(node : Continue)
+      raise ContinueInterrupt.new
+    end
+
+    def visit(node : Cycle)
+      key = (name = node.name) ? name.eval(@data) : Any.new(node.key)
+      cycles = @data.registers.cycles
+      iteration = cycles[key]? || 0
+
+      raw = node.values[iteration]?.try(&.eval(@data).raw)
+      @io << (raw.is_a?(Array) ? raw.join : raw.to_s)
+
+      iteration += 1
+      iteration = 0 if iteration >= node.values.size
+      cycles[key] = iteration
+    end
+
+    def visit(node : IfChanged)
+      io = IO::Memory.new
+      visitor = RenderVisitor.new(@data, io, @template_path)
+      node.children.each &.accept(visitor)
+      output = io.to_s
+
+      registers = @data.registers
+      return if output == registers.ifchanged
+
+      registers.ifchanged = output
+      @io << output
+    end
+
+    # Renders a loop iteration, returns true if the loop must stop due to a `{% break %}`.
+    private def render_loop_body(nodes : Array(Node), visitor : RenderVisitor) : Bool
+      nodes.each &.accept(visitor)
+      false
+    rescue BreakInterrupt
+      true
+    rescue ContinueInterrupt
+      false
+    end
+
+    # Pushes a local scope with the loop object (forloop, tablerowloop), the loop variable must be set in the
+    # yielded scope, so it goes out of scope after the loop.
+    private def with_loop_scope(loop_object_name : String, loop_object : Drop, &)
+      registers = @data.registers
+      scope = {loop_object_name => Any.new(loop_object)}
+      registers.loop_depth += 1
+      begin
+        @data.with_scope(scope) { yield scope }
+      ensure
+        registers.loop_depth -= 1
+      end
+    end
+
+    private def slice_collection(collection : Array(Any), from : Int32, to : Int32?) : Array(Any)
+      start = {from, 0}.max
+      stop = to ? {to, collection.size}.min : collection.size
+      stop > start ? collection[start...stop] : [] of Any
+    end
+
+    # Integer conversion used by for tag attributes, like Shopify's Utils.to_integer.
+    private def strict_integer(value : Any) : Int32?
+      raw = value.raw
+      int = case raw
+            when Int    then raw.to_i
+            when String then raw.strip.to_i?
+            end
+      @data.add_error(InvalidExpression.new("invalid integer")) if int.nil?
+      int
+    end
+
+    # Integer conversion used by tablerow tag attributes, like Ruby's `to_i`.
+    private def lax_integer(value : Any) : Int32?
+      raw = value.raw
+      case raw
+      when Nil    then 0
+      when Int    then raw.to_i
+      when Float  then raw.to_i
+      when String then raw.to_i?(strict: false) || 0
+      else
+        @data.add_error(InvalidExpression.new("invalid integer"))
+        nil
+      end
+    end
+
+    private def blank_for?(node : For) : Bool
+      blank_body?(node.children) && blank_body?(node.else.try(&.children) || [] of Node)
+    end
+
+    # A body is blank if it only contains whitespace and tags that don't produce output (Shopify's `blank?`).
+    private def blank_body?(nodes : Array(Node)) : Bool
+      nodes.all? do |node|
+        case node
+        when Block::RawNode
+          node.content.blank?
+        when Assign, Capture, Comment
+          true
+        when For
+          blank_for?(node)
+        when Conditional
+          blank_body?(node.children) &&
+            (node.elsif.nil? || node.elsif.not_nil!.all? { |alt| blank_body?(alt.children) }) &&
+            blank_body?(node.else.try(&.children) || [] of Node)
+        when Case
+          (node.when.nil? || node.when.not_nil!.all? { |w| blank_body?(w.children) }) &&
+            blank_body?(node.else.try(&.children) || [] of Node)
+        else
+          false
+        end
+      end
     end
 
     def visit(node : Include)
@@ -183,11 +344,13 @@ module Liquid
       value = variable.eval(@data) if variable
       collection = value.try { |v| v.as_a? || v.as_h? } if node.for_loop?
       if collection
-        forloop = ForLoop.new(collection, nil)
+        items = collection.is_a?(Hash) ? collection.map { |key, val| Any{key, val} } : collection
+        forloop = ForLoop.new(template_name, items.size, nil)
         ctx.set("forloop", forloop)
-        forloop.each do |item|
+        items.each do |item|
           ctx.set(variable_name, item)
           partial.root.accept(visitor)
+          forloop.increment!
         end
       else
         ctx.set(variable_name, value) if value

@@ -113,10 +113,45 @@ module Liquid
     end
 
     def visit(node : For)
-      def_to_io %(Liquid::Block::For.new("#{node.loop_var}", #{node.loop_over.inspect}))
+      def_to_io %(Liquid::Block::For.new("#{escape node.markup}"))
+      push
+      node.children.each &.accept(self)
+      node.else.try &.accept(self)
+      pop
+    end
+
+    def visit(node : Tablerow)
+      def_to_io %(Liquid::Block::Tablerow.new("#{escape node.markup}"))
       push
       node.children.each &.accept(self)
       pop
+    end
+
+    def visit(node : IfChanged)
+      def_to_io %(Liquid::Block::IfChanged.new(""))
+      push
+      node.children.each &.accept(self)
+      pop
+    end
+
+    def visit(node : Cycle)
+      to_io %(Liquid::Block::Cycle.new("#{escape node.markup}"))
+    end
+
+    def visit(node : Break)
+      to_io %(Liquid::Block::Break.new(""))
+    end
+
+    def visit(node : Continue)
+      to_io %(Liquid::Block::Continue.new(""))
+    end
+
+    def visit(node : Increment)
+      to_io %(Liquid::Block::Increment.new("#{escape node.var_name}"))
+    end
+
+    def visit(node : Decrement)
+      to_io %(Liquid::Block::Decrement.new("#{escape node.var_name}"))
     end
 
     def visit(node : ExpressionNode)
