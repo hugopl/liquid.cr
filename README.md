@@ -61,8 +61,8 @@ Cache block (only supports caching using Redis): https://github.com/TechMagister
 # Filters
 - [x] abs
 - [x] append
-- [ ] at_least
-- [ ] at_most
+- [x] at_least
+- [x] at_most
 - [x] base64_decode
 - [x] base64_encode
 - [x] base64_url_safe_decode
@@ -106,7 +106,8 @@ Cache block (only supports caching using Redis): https://github.com/TechMagister
 - [x] strip
 - [x] strip_html
 - [x] strip_newlines
-- [ ] times
+- [x] sum
+- [x] times
 - [x] truncate
 - [x] truncatewords
 - [ ] uniq

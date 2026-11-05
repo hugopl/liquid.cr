@@ -6,6 +6,9 @@ Arranged in reverse chronological order (latest changes on top).
 
 * [NEW] Filters: base64_decode, base64_encode, base64_url_safe_decode, base64_url_safe_encode, remove_last, replace_last, squish, truncate, truncatewords, url_decode, url_encode
 * [FIXED] String filters follow Shopify Liquid behavior: inputs and arguments are stringified, wrong argument count is an error, slice/split/newline_to_br semantics
+* [NEW] Add `times` and `sum` filters
+* [FIXED] `date` filter accepts unix timestamps and common date strings, uses Ruby compatible strftime directives and flags; "now"/"today" use the local time zone
+* [FIXED] Math filters (`plus`, `minus`, `times`, `modulo`, `round`) follow Shopify Liquid semantics: decimal arithmetic, numeric string coercion, non numbers treated as zero, argument count checks
 
 * [NEW] Support Hash#size
 * [NEW] Support Array literals

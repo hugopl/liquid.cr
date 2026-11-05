@@ -91,7 +91,7 @@ describe Filters do
       time = Time.utc(2016, 2, 15, 10, 20, 30) # => 2016-02-15 10:20:30 UTC
       Date.filter(Any.new(time), Array{Any.new "%a, %b %d, %y"}).should eq "Mon, Feb 15, 16"
       Date.filter(Any.new(time), Array{Any.new "%Y"}).should eq "2016"
-      Date.filter(Any.new("now"), Array{Any.new "%Y-%m-%d %H:%M"}).should eq Time.utc.to_s "%Y-%m-%d %H:%M"
+      Date.filter(Any.new("now"), Array{Any.new "%Y-%m-%d %H:%M"}).should eq Time.local.to_s "%Y-%m-%d %H:%M"
     end
   end
 
@@ -194,7 +194,7 @@ describe Filters do
     it "should should subtract numbers" do
       Minus.filter(Any.new(10), Array{Any.new(2)}).should eq 8
       Minus.filter(Any.new(10), Array{Any.new(2.0)}).should eq 8.0
-      Minus.filter(Any.new("10"), Array{Any.new(2.0)}).should eq "10"
+      Minus.filter(Any.new("10"), Array{Any.new(2.0)}).should eq 8.0
     end
   end
 
@@ -203,7 +203,7 @@ describe Filters do
       Modulo.filter(Any.new(10), Array{Any.new(3)}).should eq 1
       Modulo.filter(Any.new(10.0), Array{Any.new(3)}).should eq 1.0
       Modulo.filter(Any.new(10.0), Array{Any.new(3.0)}).should eq 1.0
-      Modulo.filter(Any.new(10), Array{Any.new(3.0)}).should eq 10
+      Modulo.filter(Any.new(10), Array{Any.new(3.0)}).should eq 1.0
     end
   end
 
@@ -226,7 +226,7 @@ describe Filters do
       Plus.filter(Any.new(10.0), Array{Any.new(2)}).should eq 12.0
       Plus.filter(Any.new(10.0), Array{Any.new(2.0)}).should eq 12.0
       Plus.filter(Any.new(10), Array{Any.new(4.30)}).should eq 14.3
-      Plus.filter(Any.new("10"), Array{Any.new(2.0)}).should eq "10"
+      Plus.filter(Any.new("10"), Array{Any.new(2.0)}).should eq 12.0
     end
   end
 
@@ -271,7 +271,7 @@ describe Filters do
     it "should round to the nearest precision in decimal digits" do
       Round.filter(Any.new 1.5242).should eq 2.0
       Round.filter(Any.new(1.5242), [Any.new(2)]).should eq 1.52
-      Round.filter(Any.new("1.5242"), [Any.new(2)]).should eq "1.5242"
+      Round.filter(Any.new("1.5242"), [Any.new(2)]).should eq 1.52
     end
   end
 
