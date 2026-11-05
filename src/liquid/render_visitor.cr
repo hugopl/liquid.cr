@@ -17,19 +17,18 @@ module Liquid
 
     def visit(node : Case)
       value = node.expression.eval(@data)
-      found = false
-      if when_arr = node.when
-        when_arr.each do |when_node|
-          when_node.match?(@data, value).times do
-            when_node.children.each &.accept(self)
-            found = true
-          end
+      execute_else = true
+      node.blocks.each do |block|
+        if block.is_a?(Else)
+          block.children.each &.accept(self) if execute_else
+          next
+        end
+
+        block.as(When).match?(@data, value).times do
+          block.children.each &.accept(self)
+          execute_else = false
         end
       end
-      return if found
-
-      else_node = node.else
-      else_node.children.each(&.accept(self)) if else_node
     end
 
     def visit(node : If)
@@ -75,7 +74,10 @@ module Liquid
     end
 
     def visit(node : Assign)
-      @data.set node.varname, node.value.eval(@data)
+      # Like Shopify liquid, the variable isn't assigned if a filter fails.
+      if value = node.value.eval?(@data)
+        @data.set node.varname, value
+      end
     end
 
     def visit(node : Block::RawNode)

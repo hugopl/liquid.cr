@@ -4,9 +4,10 @@ require "./strip_visitor"
 
 module Liquid
   class Parser
-    private STATEMENT        = /\A\s*(?<tag>[a-z]+)\s*(?<markup>.*)\s*\z/m
-    private ENDRAW_STATEMENT = /\A\s*endraw\s*\z/
-    private INLINE_COMMENT   = /\A\s*#(?<markup>.*)\z/m
+    private STATEMENT = /\A\s*(?<tag>[a-z]+)\s*(?<markup>.*)\s*\z/m
+    # Like Shopify liquid, the end of a raw block is the last `{% endraw %}` in a token.
+    private ENDRAW_TOKEN   = /\A(?<body>.*)\{%-?\s*endraw\s*(?<rstrip>-?)%\}\z/m
+    private INLINE_COMMENT = /\A\s*#(?<markup>.*)\z/m
     # Inline comments spawning multiple lines must have a `#` at the start of every line.
     private INVALID_INLINE_COMMENT = /\n\s*[^#\s]/
     # A line inside a `{% liquid %}` tag.
@@ -20,9 +21,9 @@ module Liquid
 
     @str : String
     @nodes = Array(Node).new
-    # if this flag is true we are parsing a {% raw %} block, so we keep creating Raw blocks for every token until we find
+    # if not nil we are parsing a {% raw %} block, so we keep adding the tokens to this node until we find
     # a {% endraw %}
-    @under_raw_block = false
+    @raw_block : Block::RawNode?
     # Current `{% comment %}` node being parsed, its nesting level and if we are inside a `{% raw %}` inside the comment.
     @comment : Block::Comment?
     @comment_depth = 0
@@ -67,15 +68,16 @@ module Liquid
           next
         end
 
-        if token.kind.raw?
-          @nodes.last << Block::RawNode.new(token.value)
-          next
-        elsif @under_raw_block # processing contents of {% raw %}
-          if token.kind.statement? && token.value =~ ENDRAW_STATEMENT
-            @under_raw_block = false
+        if raw_block = @raw_block # processing contents of {% raw %}
+          if match = token.raw_value.match(ENDRAW_TOKEN)
+            raw_block.content += match["body"]
+            raw_block.rstrip = !match["rstrip"].empty?
+            @raw_block = nil
           else
-            @nodes.last << Block::RawNode.new(token.raw_value)
+            raw_block.content += token.raw_value
           end
+        elsif token.kind.raw?
+          @nodes.last << Block::RawNode.new(token.value)
         elsif token.kind.expression?
           block = ExpressionNode.new(token.value)
           block.rstrip = token.rstrip?
@@ -85,6 +87,8 @@ module Liquid
           parse_statement(token)
         end
       end
+
+      raise SyntaxError.new("'raw' tag was never closed.") if @raw_block
 
       check_unclosed_comments!
       StripVisitor.new.visit(@root)
@@ -105,6 +109,8 @@ module Liquid
       markup = match["markup"].strip
       if tag_name == "liquid"
         parse_liquid_tag(markup, token.lstrip?, token.rstrip?)
+      elsif tag_name == "raw"
+        parse_raw_tag(markup, token.lstrip?)
       else
         parse_tag(tag_name, markup, token.lstrip?, token.rstrip?)
       end
@@ -146,21 +152,27 @@ module Liquid
         # FIXME: Check if the end tag matches the begin tag
         raise SyntaxError.new("Unexpected tag '#{tag_name}'.") if @nodes.size <= floor
 
-        @nodes.pop
+        finished_block = @nodes.pop
+        finished_block.remove_blank_strings if finished_block.blank?
         @nodes.last << block
       when Block::BeginBlock
         @nodes.last << block
         @nodes << block
       when Block::InlineBlock
         @nodes.last << block
-      when Block::RawNode
-        # If a Raw block appear here, is because Raw statement is a RawBlock instead of a BeginBlock.
-        # To process {% raw %} we turn this flag on and start generating RawBlock for every token until we
-        # find a statement token that matches with ENDRAW_STATEMENT regex.
-        @under_raw_block = true
       else
         raise SyntaxError.new("Invalid tag '#{tag_name}'.")
       end
+    end
+
+    # To process {% raw %} we create a RawNode and add every token to it until we find a {% endraw %}.
+    private def parse_raw_tag(markup : String, lstrip : Bool) : Nil
+      raise SyntaxError.new("Syntax Error in tag 'raw' - Valid syntax: raw") unless markup.empty?
+
+      raw_block = Block::RawNode.new("", raw_tag: true)
+      raw_block.lstrip = lstrip
+      @nodes.last << raw_block
+      @raw_block = raw_block
     end
 
     private def add_comment_node(lstrip : Bool, rstrip : Bool) : Block::Comment

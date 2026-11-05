@@ -18,6 +18,22 @@ module Liquid::Block
 
     def_equals @children
 
+    # Returns true if this node doesn't produce any output, used to remove whitespace from control flow blocks that
+    # contains only whitespace and blank nodes (assign, capture, comment, etc...), like Shopify liquid does.
+    def blank? : Bool
+      false
+    end
+
+    # Called by the parser after the block is parsed, if `blank?` is true. Control flow blocks (if, unless, case,
+    # for...) override this to remove whitespace only text from their bodies.
+    def remove_blank_strings : Nil
+    end
+
+    # :nodoc:
+    def remove_blank_strings_from_children : Nil
+      @children.reject! { |node| node.is_a?(RawNode) && !node.raw_tag? }
+    end
+
     def inspect(io : IO)
       inspect(io) do
       end
@@ -48,10 +64,18 @@ module Liquid::Block
 
   abstract class BeginBlock < Node
     extend Block
+
+    def blank? : Bool
+      @children.all?(&.blank?)
+    end
   end
 
   class EndBlock < Node
     extend Block
+
+    def blank? : Bool
+      true
+    end
 
     def initialize(content)
     end

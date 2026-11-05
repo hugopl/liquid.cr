@@ -38,7 +38,6 @@ module Liquid
 
     # Creates a new `Context` with the given *error_mode* and *data*.
     def initialize(@error_mode = :lax, @data = Hash(String, Any).new)
-      add_builtins
     end
 
     delegate :strict?, to: @error_mode
@@ -50,12 +49,6 @@ module Liquid
     def initialize(strict : Bool)
       @data = Hash(String, Any).new
       @error_mode = strict ? ErrorMode::Strict : ErrorMode::Lax
-      add_builtins
-    end
-
-    private def add_builtins
-      self["empty"] = [] of Any
-      self["blank"] = Blank.new
     end
 
     protected def reset_filter_context

@@ -357,8 +357,9 @@ describe Template do
     tpl = Template.parse %({{ missing }}{{ obj.missing }})
     tpl.render(ctx).should eq ""
 
+    # Like Shopify liquid, accessing properties of nil/undefined values just results in nil.
     ctx.error_mode = :strict
-    expect_raises(InvalidExpression) { tpl.render(ctx) }
+    tpl.render(ctx).should eq ""
 
     ctx["missing"] = "present"
     ctx["obj"] = Any{"something" => "something"} # still didn't define "missing"

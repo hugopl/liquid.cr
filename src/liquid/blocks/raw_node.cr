@@ -4,19 +4,18 @@ module Liquid::Block
   class RawNode < Node
     extend Block
 
-    getter content
+    property content
 
     @content : String
 
-    def initialize(@content)
+    # True if this node holds the contents of a `{% raw %}` tag, false if it's just text between tags.
+    getter? raw_tag : Bool
+
+    def initialize(@content, @raw_tag = false)
     end
 
-    def rstrip=(value : Bool)
-      raise InvalidStatement.new("Raw tags can not have whitespace controls.") if value
-    end
-
-    def lstrip=(value : Bool)
-      raise InvalidStatement.new("Raw tags can not have whitespace controls.") if value
+    def blank? : Bool
+      @raw_tag ? @content.empty? : @content.each_char.all?(&.whitespace?)
     end
 
     def lstrip!

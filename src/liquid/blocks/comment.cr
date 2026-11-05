@@ -21,6 +21,10 @@ module Liquid::Block
     def <<(node : Node)
     end
 
+    def blank? : Bool
+      true
+    end
+
     def_equals @children, content
   end
 end

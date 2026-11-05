@@ -49,6 +49,8 @@ module Liquid
       text.gsub do |char|
         case char
         when '"'  then "\\\""
+        when '\\' then "\\\\"
+        when '#'  then "\\#"
         when '\n' then "\\n"
         when '\r' then "\\r"
         when '\t' then "\\t"
@@ -92,21 +94,12 @@ module Liquid
     def visit(node : Case)
       def_to_io %(Liquid::Block::Case.new("#{escape node.expression.expression}"))
       push
-      node.children.each &.accept self
-      if arr = node.when
-        arr.each &.accept self
-      end
-      if e = node.else
-        e.accept self
-      end
+      node.blocks.each &.accept self
       pop
     end
 
     def visit(node : When)
-      expressions = node.when_expressions.map do |expression|
-        escape(expression.expression)
-      end
-      def_to_io %(Liquid::Block::When.new("#{expressions.join(", ")}"))
+      def_to_io %(Liquid::Block::When.new("#{escape node.markup}"))
       push
       node.children.each &.accept(self)
       pop

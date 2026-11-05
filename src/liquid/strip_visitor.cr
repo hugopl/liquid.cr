@@ -6,6 +6,7 @@ module Liquid
     private def check_strip(node : Node)
       last_raw_node = @last_raw_node
       last_raw_node.rstrip! if last_raw_node && node.lstrip?
+      @last_raw_node = nil
       @lstrip_next_raw_node = node.rstrip?
       # Only the text right before the tag/output can be stripped.
       @last_raw_node = nil
@@ -33,9 +34,7 @@ module Liquid
     def visit(node : Case)
       check_strip(node)
       node.children.each(&.accept(self))
-      node_when = node.when
-      node_when.each(&.accept(self)) if node_when
-      node.else.try(&.accept(self))
+      node.blocks.each(&.accept(self))
     end
 
     # A `{% liquid %}` tag behaves like a single tag regarding whitespace control.
@@ -47,6 +46,9 @@ module Liquid
     end
 
     def visit(node : Block::RawNode)
+      # Contents of {% raw %} tags are never stripped, but the tag can strip its surroundings.
+      return check_strip(node) if node.raw_tag?
+
       if @lstrip_next_raw_node
         node.lstrip!
         @lstrip_next_raw_node = false

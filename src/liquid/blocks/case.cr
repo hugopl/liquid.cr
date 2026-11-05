@@ -5,17 +5,10 @@ require "./when"
 
 module Liquid::Block
   class Case < BeginBlock
-    enum PutInto
-      Case
-      When
-      Else
-    end
-
     getter expression : Expression
-    getter when : Array(When)?
-    getter else : Else?
-
-    @last = PutInto::Case
+    # `when` and `else` blocks in the order they appear, Shopify liquid allows multiple `else` blocks and `when`
+    # blocks after an `else`.
+    getter blocks = Array(When | Else).new
 
     def initialize(@expression)
     end
@@ -25,34 +18,40 @@ module Liquid::Block
     end
 
     def <<(node : Node)
-      case @last
-      when PutInto::Case
-        # Probbly white space between {% case %} and {% when %}
-      when PutInto::When
-        @when.not_nil!.last << node
-      when PutInto::Else
-        @else.not_nil! << node
-      end
+      # Nodes before the first `when` (probably white space) are ignored.
+      @blocks.last?.try(&.<<(node))
     end
 
     def <<(node : When)
-      raise SyntaxError.new("When statement must preceed Else!") if @else
-      @when ||= Array(When).new
-      @when.not_nil! << node
-      @last = PutInto::When
+      @blocks << node
     end
 
     def <<(node : Else)
-      raise SyntaxError.new("Multiple Else in Case statement!") if @else
+      @blocks << node
+    end
 
-      @else = node
-      @last = PutInto::Else
+    def when : Array(When)?
+      whens = @blocks.compact_map(&.as?(When))
+      whens unless whens.empty?
+    end
+
+    def else : Else?
+      @blocks.each { |block| return block if block.is_a?(Else) }
+      nil
+    end
+
+    def blank? : Bool
+      @blocks.all? { |block| block.children.all?(&.blank?) }
+    end
+
+    def remove_blank_strings : Nil
+      @blocks.each(&.remove_blank_strings_from_children)
     end
 
     def inspect(io : IO)
       inspect(io) { io << @expression.expression.inspect }
     end
 
-    def_equals @when, @else, @children
+    def_equals @blocks, @children
   end
 end
