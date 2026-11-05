@@ -71,7 +71,7 @@ describe Template do
 
     ctx = Context.new
     ctx.set("myhash", Any{"key1" => 1, "key2" => "val2", "key3" => Any{"val3a", "val3b"}})
-    tpl.render(ctx).should eq %(Got : key1 => 1Got : key2 => val2Got : key3 => ["val3a", "val3b"])
+    tpl.render(ctx).should eq %(Got : key1 => 1Got : key2 => val2Got : key3 => val3aval3b)
   end
 
   it "should render case statement without an else option" do

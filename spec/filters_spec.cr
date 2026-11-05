@@ -170,7 +170,7 @@ describe Filters do
       a = Any{"one", "two", "three"}
       empty = Any.new([] of Any)
       Last.filter(a).should eq "three"
-      Last.filter(empty).should eq empty
+      Last.filter(empty).should eq Any.new(nil)
     end
   end
 
@@ -184,9 +184,9 @@ describe Filters do
     it "should return the property of the array of hashes & hash values" do
       d1 = Any{"category" => "yoo"}
       d2 = Any{Any{"category" => "yoo"}, Any{"category" => "another"}}
-      Map.filter(d1, [Any.new "category"]).should eq "yoo"
+      Map.filter(d1, [Any.new "category"]).should eq Any{"yoo"}
       Map.filter(d2, [Any.new "category"]).should eq Any{"yoo", "another"}
-      Map.filter(d2, [Any.new "test"]).should eq Any{Any{"category" => "yoo"}, Any{"category" => "another"}}
+      Map.filter(d2, [Any.new "test"]).should eq Any{nil, nil}
     end
   end
 

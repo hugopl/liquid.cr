@@ -9,6 +9,9 @@ Arranged in reverse chronological order (latest changes on top).
 * [NEW] Add `times` and `sum` filters
 * [FIXED] `date` filter accepts unix timestamps and common date strings, uses Ruby compatible strftime directives and flags; "now"/"today" use the local time zone
 * [FIXED] Math filters (`plus`, `minus`, `times`, `modulo`, `round`) follow Shopify Liquid semantics: decimal arithmetic, numeric string coercion, non numbers treated as zero, argument count checks
+* [NEW] Add concat, find, find_index, has, reject, sort, sort_natural, uniq and where filters
+* [FIXED] Array filters (map, join, first, last, reverse, size, default...) behave like Shopify Liquid, i.e. flatten nested arrays, treat non-array input as a single element array and check the number of arguments
+* [CHANGED] Arrays are rendered by concatenating their items, like Shopify Liquid
 
 * [NEW] Support Hash#size
 * [NEW] Support Array literals

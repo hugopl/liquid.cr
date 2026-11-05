@@ -1,10 +1,10 @@
-require "./base"
-require "../filters"
+require "./array_helpers"
 
 module Liquid::Filters
   # join
   #
-  # Combines the items in an array into a single string using the argument as a separator.
+  # Combines the items in an array into a single string using the argument as a separator, the default separator is
+  # a space.
   #
   # Input
   # {% assign beatles = "John, Paul, George, Ringo" | split: ", " %}
@@ -17,11 +17,10 @@ module Liquid::Filters
     extend Filter
 
     def self.filter(data : Any, args : Array(Any), options : Hash(String, Any)) : Any
-      if args && (tmp = args.first?) && (arg = tmp.as_s?) && (d = data.as_a?)
-        Any.new d.join(arg)
-      else
-        data
-      end
+      ArrayHelpers.check_args("join", args, 0..1)
+
+      glue = args.first?.try(&.to_s) || " "
+      Any.new(ArrayHelpers.to_array(data).join(glue))
     end
   end
 
