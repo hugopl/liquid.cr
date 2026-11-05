@@ -66,15 +66,18 @@ Cache block (only supports caching using Redis): https://github.com/TechMagister
 - [x] capitalize
 - [x] ceil
 - [x] compact
-- [ ] concat
+- [x] concat
 - [x] date
 - [x] default
 - [x] divided_by
 - [x] downcase
 - [x] escape
 - [x] escape_once
+- [x] find
+- [x] find_index
 - [x] first
 - [x] floor
+- [x] has
 - [x] join
 - [x] last
 - [x] lstrip
@@ -84,6 +87,7 @@ Cache block (only supports caching using Redis): https://github.com/TechMagister
 - [x] newline_to_br
 - [x] plus
 - [x] prepend
+- [x] reject
 - [x] remove
 - [x] remove_first
 - [x] replace
@@ -93,8 +97,8 @@ Cache block (only supports caching using Redis): https://github.com/TechMagister
 - [x] rstrip
 - [x] size
 - [x] slice
-- [ ] sort
-- [ ] sort_natural
+- [x] sort
+- [x] sort_natural
 - [x] split
 - [x] strip
 - [x] strip_html
@@ -102,11 +106,11 @@ Cache block (only supports caching using Redis): https://github.com/TechMagister
 - [ ] times
 - [ ] truncate
 - [ ] truncatewords
-- [ ] uniq
+- [x] uniq
 - [x] upcase
 - [ ] url_decode
 - [ ] url_encode
-- [ ] where
+- [x] where
 
 # Helper Methods
 - [x] size (for Array and String)
