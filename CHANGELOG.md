@@ -5,6 +5,7 @@ Arranged in reverse chronological order (latest changes on top).
 ## Unreleased
 
 * [NEW] Add `times` and `sum` filters
+* [FIXED] `date` filter accepts unix timestamps and common date strings, uses Ruby compatible strftime directives and flags; "now"/"today" use the local time zone
 * [FIXED] Math filters (`plus`, `minus`, `times`, `modulo`, `round`) follow Shopify Liquid semantics: decimal arithmetic, numeric string coercion, non numbers treated as zero, argument count checks
 
 * [NEW] Support Hash#size

@@ -91,7 +91,7 @@ describe Filters do
       time = Time.utc(2016, 2, 15, 10, 20, 30) # => 2016-02-15 10:20:30 UTC
       Date.filter(Any.new(time), Array{Any.new "%a, %b %d, %y"}).should eq "Mon, Feb 15, 16"
       Date.filter(Any.new(time), Array{Any.new "%Y"}).should eq "2016"
-      Date.filter(Any.new("now"), Array{Any.new "%Y-%m-%d %H:%M"}).should eq Time.utc.to_s "%Y-%m-%d %H:%M"
+      Date.filter(Any.new("now"), Array{Any.new "%Y-%m-%d %H:%M"}).should eq Time.local.to_s "%Y-%m-%d %H:%M"
     end
   end
 
