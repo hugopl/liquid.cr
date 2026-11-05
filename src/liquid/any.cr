@@ -296,8 +296,15 @@ module Liquid
     end
 
     # Returns a string representation of the underlying value.
+    #
+    # Arrays are rendered like Shopify Liquid does, by concatenating the string representation of its items.
     def to_s(io : IO) : Nil
-      @raw.to_s(io)
+      raw = @raw
+      if raw.is_a?(Array)
+        raw.each(&.to_s(io))
+      else
+        raw.to_s(io)
+      end
     end
 
     # :nodoc:
