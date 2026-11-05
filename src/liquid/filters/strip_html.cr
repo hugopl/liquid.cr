@@ -1,4 +1,5 @@
 require "./base"
+require "./string_helpers"
 
 module Liquid::Filters
   #   strip_html
@@ -17,12 +18,10 @@ module Liquid::Filters
   class StripHtml
     extend Filter
 
-    def self.filter(data : Any, args : Array(Any), options : Hash(String, Any)?) : Any
-      if data.raw.responds_to? :to_s
-        Any.new data.raw.to_s.gsub(/<script.*?<\/script>/m, "").gsub(/<!--.*?-->/m, "").gsub(/<style.*?<\/style>/m, "").gsub(/<.*?>/m, "")
-      else
-        data
-      end
+    def self.filter(data : Any, args : Array(Any), options : Hash(String, Any)) : Any
+      StringHelpers.check_args!("strip_html", args, 0)
+
+      Any.new(data.to_s.gsub(/<script.*?<\/script>|<!--.*?-->|<style.*?<\/style>/m, "").gsub(/<.*?>/m, ""))
     end
   end
 

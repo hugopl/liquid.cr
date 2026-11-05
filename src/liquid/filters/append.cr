@@ -1,4 +1,5 @@
 require "./base"
+require "./string_helpers"
 
 module Liquid::Filters
   # append
@@ -23,8 +24,7 @@ module Liquid::Filters
     extend Filter
 
     def self.filter(data : Any, args : Array(Any), options : Hash(String, Any)) : Any
-      raise FilterArgumentException.new("Missing argument for append filter") if args.nil? || args.empty?
-      raise FilterArgumentException.new("Too many arguments for append filter") if args.size > 1
+      StringHelpers.check_args!("append", args, 1)
 
       Any.new(data.to_s + args.first.to_s)
     end

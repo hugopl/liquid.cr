@@ -1,32 +1,24 @@
 require "./base"
+require "./string_helpers"
 
 module Liquid::Filters
   class StrSlice
     extend Filter
 
     def self.filter(data : Any, args : Array(Any), options : Hash(String, Any)) : Any
-      # raise error if user doesn't provide an argument to divided by
-      raise FilterArgumentException.new "slice filter expects at least one argument" unless args && args.first?
+      StringHelpers.check_args!("slice", args, 1, 2)
 
-      # raise error if user doesn't provide an argument to divided by
-      raise FilterArgumentException.new "slice filter expects argument to be an integer" unless args.first.raw.is_a?(Int)
+      offset = StringHelpers.to_integer("slice", args[0])
+      length_arg = args[1]?
+      length = length_arg && length_arg.raw ? StringHelpers.to_integer("slice", length_arg) : 1
 
-      if (str = data.as_s?) && (first = args.first.as_i?)
-        second = -1
-
-        # if we pass another argument and it's an integer then override default range
-        if args.size > 1 && args.last(1)[0]? && args.last(1)[0].as_i?
-          second = args.last(1)[0].as_i
-        end
-
-        begin
-          str = str[first..second]
-          Any.new str
-        rescue
-          data
-        end
+      if array = data.as_a?
+        range = StringHelpers.ruby_slice_range(array.size, offset, length)
+        Any.new(range ? array[range] : Array(Any).new)
       else
-        data
+        str = data.to_s
+        range = StringHelpers.ruby_slice_range(str.size, offset, length)
+        Any.new(range ? str[range] : "")
       end
     end
   end

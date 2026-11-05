@@ -1,4 +1,5 @@
 require "./base"
+require "./string_helpers"
 
 module Liquid::Filters
   #   newline_to_br
@@ -21,11 +22,9 @@ module Liquid::Filters
     extend Filter
 
     def self.filter(data : Any, args : Array(Any), options : Hash(String, Any)) : Any
-      if data.raw.responds_to? :to_s
-        Any.new data.raw.to_s.gsub /\n/, "<br />"
-      else
-        data
-      end
+      StringHelpers.check_args!("newline_to_br", args, 0)
+
+      Any.new(data.to_s.gsub(/\r?\n/, "<br />\n"))
     end
   end
 

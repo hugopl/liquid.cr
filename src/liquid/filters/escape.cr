@@ -1,6 +1,7 @@
 require "html"
 
 require "./base"
+require "./string_helpers"
 
 module Liquid::Filters
   #   escape
@@ -22,11 +23,10 @@ module Liquid::Filters
     extend Filter
 
     def self.filter(data : Any, args : Array(Any), options : Hash(String, Any)) : Any
-      if data.raw.responds_to? :to_s
-        Any.new HTML.escape data.to_s
-      else
-        data
-      end
+      StringHelpers.check_args!("escape", args, 0)
+      return data if data.raw.nil?
+
+      Any.new(HTML.escape(data.to_s))
     end
   end
 

@@ -1,4 +1,5 @@
 require "./base"
+require "./string_helpers"
 require "../filters"
 
 module Liquid::Filters
@@ -6,13 +7,9 @@ module Liquid::Filters
     extend Filter
 
     def self.filter(data : Any, args : Array(Any), options : Hash(String, Any)) : Any
-      if (first = args.first?) && (second = args[1]?) &&
-         (from = first.as_s?) && (to = second.as_s?) && (d = data.as_s?)
-        Any.new d.gsub from, to
-      else
-        # TODO raise invalid filter call ?
-        data
-      end
+      StringHelpers.check_args!("replace", args, 1, 2)
+
+      Any.new(data.to_s.gsub(args[0].to_s, args[1]?.to_s))
     end
   end
 

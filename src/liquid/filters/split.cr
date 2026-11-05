@@ -1,4 +1,5 @@
 require "./base"
+require "./string_helpers"
 
 module Liquid::Filters
   #   split
@@ -24,19 +25,18 @@ module Liquid::Filters
     extend Filter
 
     def self.filter(data : Any, args : Array(Any), options : Hash(String, Any)) : Any
-      raise FilterArgumentException.new("split filter expects one argument.") if args.size != 1
+      StringHelpers.check_args!("split", args, 1)
 
-      arg = args.first.to_s
-      raw_data = data.raw
-
-      return Any.new(nil) if raw_data.nil?
-
-      if raw_data.responds_to?(:split)
-        array = raw_data.split(arg).map { |obj| Any.new(obj) }
-        Any.new(array)
-      else
-        Any{data}
+      pattern = args.first.to_s
+      input = data.to_s
+      # Like Ruby, a single space splits on any whitespace and ignores leading whitespace.
+      parts = pattern == " " ? input.split(/[ \t\n\v\f\r]+/).tap { |a| a.shift if a.first? == "" } : input.split(pattern)
+      # Like Ruby, trailing empty strings are removed.
+      while parts.last? == ""
+        parts.pop
       end
+
+      Any.new(parts.map { |part| Any.new(part) })
     end
   end
 

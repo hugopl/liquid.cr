@@ -1,5 +1,6 @@
 require "html"
 require "./base"
+require "./string_helpers"
 
 module Liquid::Filters
   #   escape
@@ -30,22 +31,15 @@ module Liquid::Filters
     }
 
     def self.filter(data : Any, args : Array(Any), options : Hash(String, Any)) : Any
-      if data.raw.responds_to? :to_s
-        str = data.to_s
+      StringHelpers.check_args!("escape_once", args, 0)
 
-        # replace all except for ampersand
-        SUBSTITUTIONS.each do |key, val|
-          str = str.gsub(key, val) if key != '&'
-        end
-
-        # replace all & symbol's that aren't already converted to an html entity
-        # thanks http://stackoverflow.com/questions/310572/regex-in-php-to-match-that-arent-html-entities#comment18198597_311904
-        str = str.gsub(/&(?!(?:[a-z][a-z\d]*|#(?:\d+|[xX][a-f\d]+));)/, "&amp;")
-
-        Any.new str
-      else
-        data
+      str = data.to_s
+      SUBSTITUTIONS.each do |key, val|
+        str = str.gsub(key, val) if key != '&'
       end
+      str = str.gsub(/&(?!(?:[a-z][a-z\d]*|#(?:\d+|[xX][a-f\d]+));)/, "&amp;")
+
+      Any.new(str)
     end
   end
 

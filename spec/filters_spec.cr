@@ -209,7 +209,7 @@ describe Filters do
 
   describe NewLineToBr do
     it "should replace newline \\n by <br />" do
-      NewLineToBr.filter(Any.new "Hello\nWorld").should eq "Hello<br />World"
+      NewLineToBr.filter(Any.new "Hello\nWorld").should eq "Hello<br />\nWorld"
     end
   end
 
@@ -295,10 +295,11 @@ describe Filters do
 
   describe StrSlice do
     it "should return substring of the current string value" do
-      StrSlice.filter(Any.new("valuable"), [Any.new(4)]).should eq "able"
-      StrSlice.filter(Any.new("valuable"), [Any.new(10)]).should eq "valuable"
-      StrSlice.filter(Any.new("valuable"), [Any.new(2), Any.new(4)]).should eq "lua"
-      StrSlice.filter(Any.new("valuable"), [Any.new(2), Any.new("test")]).should eq "luable"
+      StrSlice.filter(Any.new("valuable"), [Any.new(4)]).should eq "a"
+      StrSlice.filter(Any.new("valuable"), [Any.new(10)]).should eq ""
+      StrSlice.filter(Any.new("valuable"), [Any.new(2), Any.new(4)]).should eq "luab"
+      StrSlice.filter(Any.new("valuable"), [Any.new(-4), Any.new(2)]).should eq "ab"
+      expect_raises(FilterArgumentException) { StrSlice.filter(Any.new("valuable"), [Any.new(2), Any.new("test")]) }
     end
   end
 

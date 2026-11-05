@@ -1,4 +1,5 @@
 require "./base"
+require "./string_helpers"
 
 module Liquid::Filters
   # prepend
@@ -24,7 +25,7 @@ module Liquid::Filters
     extend Filter
 
     def self.filter(data : Any, args : Array(Any), options : Hash(String, Any)) : Any
-      return data if args.nil? || args.empty?
+      StringHelpers.check_args!("prepend", args, 1)
 
       Any.new(args.first.to_s + data.to_s)
     end
