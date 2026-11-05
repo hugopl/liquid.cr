@@ -4,6 +4,9 @@ Arranged in reverse chronological order (latest changes on top).
 
 ## Unreleased
 
+* [NEW] Filters: base64_decode, base64_encode, base64_url_safe_decode, base64_url_safe_encode, remove_last, replace_last, squish, truncate, truncatewords, url_decode, url_encode
+* [FIXED] String filters follow Shopify Liquid behavior: inputs and arguments are stringified, wrong argument count is an error, slice/split/newline_to_br semantics
+
 * [NEW] Support Hash#size
 * [NEW] Support Array literals
 * [FIXED] Filters within loops no longer applied once per each completed loop iteration
