@@ -71,7 +71,11 @@ module Liquid
     end
 
     def visit(node : Include)
-      to_io %(Liquid::Block::Include.new("#{escape node.template_name}"))
+      to_io %(Liquid::Block::Include.new(#{node.markup.inspect}))
+    end
+
+    def visit(node : Render)
+      to_io %(Liquid::Block::Render.new(#{node.markup.inspect}))
     end
 
     def visit(node : Capture)

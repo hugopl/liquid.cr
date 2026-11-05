@@ -84,7 +84,7 @@ module Liquid
 
     def visit(node : Capture)
       io = IO::Memory.new
-      visitor = RenderVisitor.new @data, io
+      visitor = RenderVisitor.new @data, io, @template_path
       node.children.each &.accept visitor
       io.close
       @data.set node.var_name, io.to_s
@@ -126,7 +126,7 @@ module Liquid
                     loop_over_var
                   end
 
-      visitor = RenderVisitor.new(ctx, @io)
+      visitor = RenderVisitor.new(ctx, @io, @template_path)
       parentloop = ctx["forloop"]?.try(&.raw).as?(ForLoop)
       forloop = ForLoop.new(loop_over, parentloop)
 
@@ -139,21 +139,69 @@ module Liquid
     end
 
     def visit(node : Include)
-      filename = if @template_path != nil
-                   File.join(@template_path.not_nil!, node.template_name)
-                 else
-                   node.template_name
-                 end
+      template_name = node.template_name(@data)
+      partial = load_partial(template_name)
+      variable_name = node.alias_name || template_name.split('/').last
 
-      if node.template_vars != nil
-        node.template_vars.each do |key, value|
-          @data.set key, value.eval(@data)
-        end
+      # If no variable is given, the variable with the same name of the template is used, like Shopify liquid does.
+      value = if variable = node.variable
+                variable.eval(@data)
+              else
+                @data[template_name]?
+              end
+
+      scope = Hash(String, Any).new
+      node.attributes.each do |key, expression|
+        scope[key] = expression.eval(@data)
       end
 
-      template_content = File.read filename
-      template = Template.parse template_content
-      @io << template.render(@data)
+      @data.with_scope(scope) do
+        if array = value.try(&.as_a?)
+          array.each do |item|
+            scope[variable_name] = item
+            partial.root.accept(self)
+          end
+        else
+          scope[variable_name] = value if value
+          partial.root.accept(self)
+        end
+      end
+    end
+
+    def visit(node : Render)
+      template_name = node.template_name(@data)
+      partial = load_partial(template_name)
+      variable_name = node.alias_name || template_name.split('/').last
+
+      ctx = Context.new(@data.error_mode)
+      node.attributes.each do |key, expression|
+        ctx.set(key, expression.eval(@data))
+      end
+      visitor = RenderVisitor.new(ctx, @io, @template_path)
+
+      variable = node.variable
+      value = variable.eval(@data) if variable
+      collection = value.try { |v| v.as_a? || v.as_h? } if node.for_loop?
+      if collection
+        forloop = ForLoop.new(collection, nil)
+        ctx.set("forloop", forloop)
+        forloop.each do |item|
+          ctx.set(variable_name, item)
+          partial.root.accept(visitor)
+        end
+      else
+        ctx.set(variable_name, value) if value
+        partial.root.accept(visitor)
+      end
+    end
+
+    private def load_partial(template_name : String) : Template
+      template_name += ".liquid" if File.extname(template_name).empty?
+      template_path = @template_path
+      filename = template_path ? File.join(template_path, template_name) : template_name
+      Template.parse(File.read(filename))
+    rescue e : File::Error
+      raise LiquidException.new("Can't load partial template #{template_name.inspect}: #{e.message}")
     end
   end
 end

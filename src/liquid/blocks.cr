@@ -30,6 +30,7 @@ module Liquid
   BlockRegister.register "increment", Liquid::Block::Increment, false
   BlockRegister.register "decrement", Liquid::Block::Decrement, false
   BlockRegister.register "include", Liquid::Block::Include, false
+  BlockRegister.register "render", Liquid::Block::Render, false
   BlockRegister.register "raw", Liquid::Block::RawNode
   BlockRegister.register "comment", Liquid::Block::Comment
 end
