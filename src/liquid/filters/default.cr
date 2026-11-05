@@ -35,13 +35,13 @@ module Liquid::Filters
     extend Filter
 
     def self.filter(data : Any, args : Array(Any), options : Hash(String, Any)) : Any
-      raise FilterArgumentException.new "default filter expects one argument" if args.size != 1
+      raise FilterArgumentException.new "default filter expects at most one argument" if args.size > 1
 
       raw = data.raw
       if raw == false && options["allow_false"].as_bool?
         data
       elsif !raw || (raw.responds_to?(:empty?) && raw.empty?)
-        args.first
+        args.first? || Any.new("")
       else
         data
       end
