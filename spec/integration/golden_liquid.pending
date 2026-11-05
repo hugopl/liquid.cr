@@ -1,0 +1,2 @@
+# Needs a strict2 error mode (Shopify Liquid >= 5.11), contradicts "identifiers, only digits" in strict mode.
+identifiers, only digits, self

@@ -5,7 +5,8 @@ require "../../src/liquid/json"
 # [golden-liquid](https://github.com/jg-rp/golden-liquid) is a test suite for
 # liquid template, tests are found in spec/integration/golden_liquid.json, a
 # list of tests that are expected to fail can be found at
-# spec/integration/golden_liquid.pending (one full test name per line).
+# spec/integration/golden_liquid.pending (one full test name per line, lines
+# starting with `#` are comments).
 #
 # All golden liquid tests are tagged with `golden`. Tests are run in two modes,
 # using the render visitor directly (tagged with `render`) and using the
@@ -205,7 +206,7 @@ class PendingGold
   @@pending : Set(String)?
 
   def self.pending?(name : String) : Bool
-    pending = @@pending ||= File.read_lines(File.join(__DIR__, "golden_liquid.pending")).reject(&.blank?).to_set
+    pending = @@pending ||= File.read_lines(File.join(__DIR__, "golden_liquid.pending")).reject { |line| line.blank? || line.starts_with?("#") }.to_set
     pending.includes?(name)
   rescue File::NotFoundError
     false
