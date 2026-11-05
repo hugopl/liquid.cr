@@ -1,39 +1,88 @@
-require "yaml"
+require "json"
 require "../spec_helper"
+require "../../src/liquid/json"
 
 # [golden-liquid](https://github.com/jg-rp/golden-liquid) is a test suite for
-# liquid template, tests are found in spec/integration/golden_liquid.yaml, a
+# liquid template, tests are found in spec/integration/golden_liquid.json, a
 # list of tests that are expected to fail can be found at
-# spec/integration/golden_liquid.pending.
+# spec/integration/golden_liquid.pending (one full test name per line).
 #
 # All golden liquid tests are tagged with `golden`. Tests are run in two modes,
 # using the render visitor directly (tagged with `render`) and using the
-# codegen visitor (tagged with `codegen`), besides a numeric tag for each test.
+# codegen visitor (tagged with `codegen`), besides a `test-N` tag for each test,
+# where N is the 1-based position of the test in golden_liquid.json.
 #
 # For code gen tests Crystal code is written in files like
 # `spec/integration/codegen-test-XXX.cr` where XXX is the test number.
+#
+# Partial templates (used by `include` and `render` tags) are written to
+# `spec/integration/golden-partials/test-XXX/` as `<name>.liquid` files.
 class GoldenTest
-  include YAML::Serializable
+  include JSON::Serializable
 
   getter name : String
   @template : String
-  @want : String
-  @error : Bool
-  @context : YAML::Any
-  @partials : Hash(String, String)
-  @strict : Bool
+  @data : JSON::Any?
+  @result : String?
+  @results : Array(String)?
+  @invalid : Bool = false
+  @templates : Hash(String, String)?
+  @tags : Array(String) = [] of String
+
+  # Name of the test group, e.g. "filters, abs" or "blank and empty".
+  def group : String
+    parts = @name.split(", ")
+    count = {"filters", "tags"}.includes?(parts.first) && parts.size > 2 ? 2 : 1
+    parts.first(count).join(", ")
+  end
+
+  # Test name without the group prefix.
+  def short_name : String
+    @name.lchop(group).lchop(", ")
+  end
+
+  def strict? : Bool
+    @tags.includes?("strict") || @tags.includes?("strict2")
+  end
+
+  def invalid? : Bool
+    @invalid
+  end
+
+  private def wants : Array(String)
+    @results || [@result.not_nil!]
+  end
+
+  # Golden liquid run ruby tests with `render!`, that raises an exception on first error, this is the strict behavior
+  # of liquid crystal.
+  private def error_mode : Context::ErrorMode
+    strict? || invalid? ? Context::ErrorMode::Strict : Context::ErrorMode::Lax
+  end
 
   private def context : Liquid::Context
-    vars = @context.as_h?
-    raise "Bad context: #{@context}" if vars.nil?
+    ctx = Context.new(error_mode)
+    data = @data
+    return ctx if data.nil?
 
-    # Golden liquid run ruby tests with `render!`, that raises an exception on first error, this is the strict behavior
-    # of liquid crystal.
-    ctx = Context.new(@strict || @error ? Context::ErrorMode::Strict : Context::ErrorMode::Lax)
+    vars = data.as_h?
+    raise "Bad context: #{data}" if vars.nil?
+
     vars.each do |key, value|
-      ctx.set(key.as_s, yaml_any_to_liquid_any(value))
+      ctx.set(key, value)
     end
     ctx
+  end
+
+  # Write partial templates to disk, returns the directory where they were written.
+  private def write_partials(test_number) : String
+    dir = Path[__DIR__, "golden-partials", "test-#{test_number}"].to_s
+    Dir.mkdir_p(dir)
+    @templates.try &.each do |name, source|
+      path = File.join(dir, name.ends_with?(".liquid") ? name : "#{name}.liquid")
+      Dir.mkdir_p(File.dirname(path))
+      File.write(path, source)
+    end
+    dir
   end
 
   private def context_to_code(context : Liquid::Context) : String
@@ -70,29 +119,34 @@ class GoldenTest
     end
   end
 
-  def test!
-    if @error
+  private def render(test_number) : String
+    tpl = Parser.parse(@template)
+    tpl.template_path = write_partials(test_number)
+    tpl.render(context)
+  end
+
+  def test!(test_number)
+    if invalid?
       expect_raises(LiquidException) do
-        Parser.parse(@template).render(context).should eq(@want)
+        render(test_number)
       end
     else
-      Parser.parse(@template).render(context).should eq(@want)
+      wants.should contain(render(test_number))
     end
   end
 
-  def codegen_test!(test_group, test_number)
+  def codegen_test!(test_number)
     test_path = Path[__DIR__, "codegen-test-#{test_number}.cr"]
     test = File.open(test_path, "w")
-    test.puts("# #{test_group.name}.#{@name}\n\n")
-    generate_codegen_test_source(test)
+    test.puts("# #{@name}\n\n")
+    generate_codegen_test_source(test, test_number)
     output = `crystal run #{Process.quote(test.path)} --error-trace`
     $?.exit_code.should eq(0)
-    output.should eq(@want) unless @error
+    wants.should contain(output) unless invalid?
   end
 
-  private def generate_codegen_test_source(io) : Nil
-    error_mode = @strict || @error ? Context::ErrorMode::Strict : Context::ErrorMode::Lax
-
+  private def generate_codegen_test_source(io, test_number) : Nil
+    partials_dir = write_partials(test_number)
     io.puts(<<-CRYSTAL)
     require "../../src/liquid"
 
@@ -100,12 +154,8 @@ class GoldenTest
     #{Liquid::CodeGenVisitor.escape(@template)}
     LIQUID
 
-    WANT =<<-TEXT
-    #{Liquid::CodeGenVisitor.escape(@want)}
-    TEXT
-
     #  CONTEXT
-    expects_error = #{@error}
+    expects_error = #{invalid?}
     context = #{context_to_code(context)}
     context.error_mode = :#{error_mode}
 
@@ -117,8 +167,8 @@ class GoldenTest
     tpl.root.accept(visitor)
     io.puts(<<-CRYSTAL)
     begin
-      Liquid::Template.new(root).render(context, STDOUT)
-    rescue ex : Liquid::InvalidExpression
+      Liquid::Template.new(root, #{partials_dir.inspect}).render(context, STDOUT)
+    rescue ex : Liquid::LiquidException
       raise ex unless expects_error
     end
     CRYSTAL
@@ -130,71 +180,45 @@ class GoldenTest
   end
 end
 
-class GoldenTestGroup
-  include YAML::Serializable
+class GoldenLiquid
+  include JSON::Serializable
 
-  getter name : String
+  getter description : String
   getter tests : Array(GoldenTest)
 end
 
-class GoldenLiquid
-  include YAML::Serializable
-
-  getter version : String
-  getter test_groups : Array(GoldenTestGroup)
-end
-
-private def yaml_any_to_liquid_any(yaml : YAML::Any) : Liquid::Any
-  raw = yaml.raw
-  case raw
-  when Bool, Float64, Int64, String, Nil
-    Liquid::Any.new(raw)
-  when Array(YAML::Any)
-    array = raw.map { |i| yaml_any_to_liquid_any(i) }
-    Liquid::Any.new(array)
-  when Hash(YAML::Any, YAML::Any)
-    hash = raw.each_with_object(Hash(String, Liquid::Any).new) do |(key, value), obj|
-      obj[key.to_s] = yaml_any_to_liquid_any(value)
-    end
-    Liquid::Any.new(hash)
-  else
-    abort(yaml.to_s)
-  end
-end
-
 class PendingGold
-  @@pending : Array(String)?
+  @@pending : Set(String)?
 
-  def self.pending?(group : String, name : String) : Bool
-    pending = @@pending ||= File.read_lines(File.join(__DIR__, "golden_liquid.pending"))
-    pending.includes?("#{group} #{name}")
+  def self.pending?(name : String) : Bool
+    pending = @@pending ||= File.read_lines(File.join(__DIR__, "golden_liquid.pending")).reject(&.blank?).to_set
+    pending.includes?(name)
   rescue File::NotFoundError
     false
   end
 end
 
-# Tests here use the Golden Liquid tests (https://github.com/jg-rp/golden-liquid) described at golden_liquid.yaml file.
+# Tests here use the Golden Liquid tests (https://github.com/jg-rp/golden-liquid) described at golden_liquid.json file.
 describe "Golden Liquid Tests" do
-  i = 1
   skip_pending_tests = ENV["SKIP_PENDING"]?
 
-  GoldenLiquid.from_yaml(File.read(File.join(__DIR__, "golden_liquid.yaml"))).test_groups.each do |test_group|
-    describe test_group.name, tags: "golden" do
-      test_group.tests.each do |test|
-        if PendingGold.pending?(test_group.name, test.name)
-          pending(test.name, line: i) unless skip_pending_tests
-        else
-          it "#{test.name} [test-#{i} render]", tags: ["test-#{i}", "render"] do
-            test.test!
-          end
-
-          i += 1
-          dup_i = i
-          it "#{test.name} [test-#{i} codegen]", tags: ["test-#{i}", "codegen"] do
-            test.codegen_test!(test_group, dup_i)
-          end
+  golden = GoldenLiquid.from_json(File.read(File.join(__DIR__, "golden_liquid.json")))
+  numbered = golden.tests.each_with_index(1).to_a
+  numbered.group_by(&.[0].group).each do |group_name, tests|
+    describe group_name, tags: "golden" do
+      tests.each do |test, i|
+        if PendingGold.pending?(test.name)
+          pending(test.short_name) unless skip_pending_tests
+          next
         end
-        i += 1
+
+        it "#{test.short_name} [test-#{i} render]", tags: ["test-#{i}", "render"] do
+          test.test!(i)
+        end
+
+        it "#{test.short_name} [test-#{i} codegen]", tags: ["test-#{i}", "codegen"] do
+          test.codegen_test!(i)
+        end
       end
     end
   end
