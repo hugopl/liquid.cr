@@ -22,6 +22,12 @@ module Liquid
       node.else.try(&.accept(self))
     end
 
+    def visit(node : For)
+      check_strip(node)
+      node.children.each(&.accept(self))
+      node.else.try(&.accept(self))
+    end
+
     def visit(node : Case)
       check_strip(node)
       node.children.each(&.accept(self))
