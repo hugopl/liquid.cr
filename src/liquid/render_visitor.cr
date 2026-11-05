@@ -293,7 +293,7 @@ module Liquid
             (node.elsif.nil? || node.elsif.not_nil!.all? { |alt| blank_body?(alt.children) }) &&
             blank_body?(node.else.try(&.children) || [] of Node)
         when Case
-          (node.when.nil? || node.when.not_nil!.all? { |w| blank_body?(w.children) }) &&
+          (node.when.nil? || node.when.not_nil!.all? { |when_node| blank_body?(when_node.children) }) &&
             blank_body?(node.else.try(&.children) || [] of Node)
         else
           false

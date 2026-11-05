@@ -6,8 +6,8 @@ module Liquid::Filters
   module Strftime
     extend self
 
-    DAY_NAMES   = %w(Sunday Monday Tuesday Wednesday Thursday Friday Saturday)
-    MONTH_NAMES = %w(January February March April May June July August September October November December)
+    DAY_NAMES   = %w[Sunday Monday Tuesday Wednesday Thursday Friday Saturday]
+    MONTH_NAMES = %w[January February March April May June July August September October November December]
 
     def format(time : Time, format : String) : String
       String.build do |io|
@@ -29,7 +29,7 @@ module Liquid::Filters
         start = i
         ok, i = directive(io, time, chars, i + 1)
         # Unknown or incomplete directive, output it verbatim.
-        chars[start...i].each { |c| io << c } unless ok
+        chars[start...i].each { |verbatim| io << verbatim } unless ok
       end
     end
 
@@ -55,7 +55,7 @@ module Liquid::Filters
         i += 1
       end
 
-      while (digit = chars[i]?.try(&.to_i?))
+      while digit = chars[i]?.try(&.to_i?)
         # Limit the width to avoid huge outputs.
         width = Math.min((width || 0) * 10 + digit, 1024)
         i += 1
