@@ -19,6 +19,8 @@ module Liquid
     end
 
     @data : Hash(String, Any)
+    # Local scopes, e.g. variables passed to `{% include %}` tags, the last scope is the innermost one.
+    @scopes = Array(Hash(String, Any)).new
 
     # :nodoc:
     # These values are used/reused when calling filters in a expression using this context.
@@ -83,7 +85,7 @@ module Liquid
     # Fetch a variable from context, add `UndefinedVariable` error if the variable isn't found and behave according the
     # error mode.
     def get(var : String) : Any
-      value = @data[var]?
+      value = self[var]?
       return value if value
 
       add_error(UndefinedVariable.new(var))
@@ -98,7 +100,21 @@ module Liquid
     #
     # This doesn't trigger any exceptions or store any errors if the variable doesn't exists.
     def []?(var : String) : Any?
+      @scopes.reverse_each do |scope|
+        value = scope[var]?
+        return value if value
+      end
       @data[var]?
+    end
+
+    # Pushes a new local scope, variables in local scopes have precedence over the variables set by `#set`.
+    #
+    # The scope is removed after the block returns.
+    def with_scope(scope : Hash(String, Any), &)
+      @scopes << scope
+      yield
+    ensure
+      @scopes.pop
     end
 
     # Sets the value of *var* to the given *value*.

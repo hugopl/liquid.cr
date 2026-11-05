@@ -1,7 +1,16 @@
 require "./block"
 
 module Liquid::Block
-  class Comment < BeginBlock
+  # Node used for `{% comment %}`, `{% doc %}` and inline comments (`{% # ... %}`).
+  #
+  # The contents of a comment are never parsed nor rendered, the node only exists to keep the whitespace control
+  # information of the tags.
+  class Comment < Node
+    extend Block
+
+    def initialize
+    end
+
     def initialize(content : String)
     end
 
