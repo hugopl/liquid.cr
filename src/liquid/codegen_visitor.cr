@@ -78,6 +78,10 @@ module Liquid
       to_io %(Liquid::Block::Render.new(#{node.markup.inspect}))
     end
 
+    # Comments are never rendered and whitespace control was already applied on parse time.
+    def visit(node : Block::Comment)
+    end
+
     def visit(node : Capture)
       def_to_io %(Liquid::Block::Capture.new("#{escape node.var_name}"))
       push

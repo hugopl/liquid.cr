@@ -30,6 +30,14 @@ module Liquid
       node.else.try(&.accept(self))
     end
 
+    # A `{% liquid %}` tag behaves like a single tag regarding whitespace control.
+    def visit(node : Block::LiquidTag)
+      last_raw_node = @last_raw_node
+      last_raw_node.rstrip! if last_raw_node && node.lstrip?
+      node.children.each(&.accept(self))
+      @lstrip_next_raw_node = node.rstrip?
+    end
+
     def visit(node : Block::RawNode)
       if @lstrip_next_raw_node
         node.lstrip!
