@@ -300,7 +300,9 @@ module Liquid
     # Arrays are rendered like Shopify Liquid does, by concatenating the string representation of its items.
     def to_s(io : IO) : Nil
       raw = @raw
-      if raw.is_a?(Array)
+      if raw.is_a?(RangeArray)
+        raw.to_s(io)
+      elsif raw.is_a?(Array)
         raw.each(&.to_s(io))
       else
         raw.to_s(io)
@@ -355,5 +357,27 @@ module Liquid
 
     # See `Object#hash(hasher)`
     def_hash raw
+  end
+end
+
+module Liquid
+  # The value of a range literal like `(1..5)`.
+  #
+  # It behaves like an array of integers, but renders as its string representation (e.g. `1..5`), like Shopify Liquid
+  # ranges, so filters that work on strings (e.g. `slice`) see `"1..5"`.
+  class RangeArray < Array(Any)
+    getter range_start : Int64
+    getter range_end : Int64
+
+    def initialize(@range_start : Int64, @range_end : Int64)
+      super(@range_end >= @range_start ? (@range_end - @range_start + 1).to_i : 0)
+      (@range_start..@range_end).each do |i|
+        self << (i.in?(Int32::MIN..Int32::MAX) ? Any.new(i.to_i32) : Any.new(i))
+      end
+    end
+
+    def to_s(io : IO) : Nil
+      io << @range_start << ".." << @range_end
+    end
   end
 end

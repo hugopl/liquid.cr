@@ -12,7 +12,9 @@ module Liquid::Filters
       length_arg = args[1]?
       length = length_arg && length_arg.raw ? StringHelpers.to_integer("slice", length_arg) : 1
 
-      if array = data.as_a?
+      array = data.as_a?
+      # Ranges are sliced by their string representation, like in Shopify Liquid.
+      if array && !array.is_a?(RangeArray)
         range = StringHelpers.ruby_slice_range(array.size, offset, length)
         Any.new(range ? array[range] : Array(Any).new)
       else

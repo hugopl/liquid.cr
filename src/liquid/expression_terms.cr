@@ -175,7 +175,7 @@ module Liquid
       end
     end
 
-    # A range literal like `(1..5)`, evaluated to an array of integers.
+    # A range literal like `(1..5)`, evaluated to a `RangeArray`.
     class RangeTerm < Term
       getter range_start : Term
       getter range_end : Term
@@ -190,11 +190,7 @@ module Liquid
         last = to_integer(ctx, @range_end)
         return Any.new(nil) if last.nil?
 
-        array = Array(Any).new
-        (first..last).each do |i|
-          array << (i.in?(Int32::MIN..Int32::MAX) ? Any.new(i.to_i32) : Any.new(i))
-        end
-        Any.new(array)
+        Any.new(RangeArray.new(first, last))
       end
 
       private def to_integer(ctx : Context, term : Term) : Int64?
