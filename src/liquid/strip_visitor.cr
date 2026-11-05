@@ -7,6 +7,8 @@ module Liquid
       last_raw_node = @last_raw_node
       last_raw_node.rstrip! if last_raw_node && node.lstrip?
       @lstrip_next_raw_node = node.rstrip?
+      # Only the text right before the tag/output can be stripped.
+      @last_raw_node = nil
     end
 
     def visit(node : Node)
