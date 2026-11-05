@@ -41,6 +41,11 @@ class GoldenTest
     @name.lchop(group).lchop(", ")
   end
 
+  # Test assumes the host timezone is UTC.
+  def utc? : Bool
+    @tags.includes?("utc")
+  end
+
   def strict? : Bool
     @tags.includes?("strict") || @tags.includes?("strict2")
   end
@@ -122,7 +127,15 @@ class GoldenTest
   private def render(test_number) : String
     tpl = Parser.parse(@template)
     tpl.template_path = write_partials(test_number)
-    tpl.render(context)
+    return tpl.render(context) unless utc?
+
+    local = Time::Location.local
+    begin
+      Time::Location.local = Time::Location::UTC
+      tpl.render(context)
+    ensure
+      Time::Location.local = local
+    end
   end
 
   def test!(test_number)
@@ -158,6 +171,7 @@ class GoldenTest
     expects_error = #{invalid?}
     context = #{context_to_code(context)}
     context.error_mode = :#{error_mode}
+    #{"Time::Location.local = Time::Location::UTC" if utc?}
 
     #  CODEGEN OUTPUT
     CRYSTAL
