@@ -4,6 +4,9 @@ Arranged in reverse chronological order (latest changes on top).
 
 ## Unreleased
 
+* [NEW] Add `times` and `sum` filters
+* [FIXED] Math filters (`plus`, `minus`, `times`, `modulo`, `round`) follow Shopify Liquid semantics: decimal arithmetic, numeric string coercion, non numbers treated as zero, argument count checks
+
 * [NEW] Support Hash#size
 * [NEW] Support Array literals
 * [FIXED] Filters within loops no longer applied once per each completed loop iteration

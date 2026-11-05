@@ -37,6 +37,8 @@ require "./filters/split"
 require "./filters/strip"
 require "./filters/strip_html"
 require "./filters/strip_newlines"
+require "./filters/sum"
+require "./filters/times"
 require "./filters/upcase"
 
 require "./context"

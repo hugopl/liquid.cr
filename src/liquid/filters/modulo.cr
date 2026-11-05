@@ -1,52 +1,23 @@
 require "./base"
+require "./number_utils"
 
 module Liquid::Filters
+  # Filter modulo
+  #
+  # Returns the remainder of a division operation.
+  #
+  # `{{ 3 | modulo: 2 }}` => `1`
+  #
+  # Non numeric values are treated as zero, strings are converted to numbers.
   class Modulo
     extend Filter
 
     def self.filter(data : Any, args : Array(Any), options : Hash(String, Any)) : Any
-      # raise error if user doesn't provide an argument to divide by
-      raise FilterArgumentException.new "modulo filter expects one argument" unless args && args.first?
+      raise FilterArgumentException.new("modulo filter expects one argument.") if args.size != 1
 
-      # can only subtract numbers
-      raise FilterArgumentException.new "modulo filter expects a Number argument" unless args.first.raw.is_a?(Number)
-
-      # raise error if we're trying to divide by zero
-      raise FilterArgumentException.new "modulo filter cannot divide by 0 or 0.0" unless args.first != 0 && args.first != 0.0
-
-      if (number = data.raw) && number.is_a?(Number) && (first = args.first?)
-        result = self.divide_by_any(data, first)
-        if !result.nil?
-          return Any.new result
-        end
-      end
-      data
-    end
-
-    # convert left & right values to either an int or float and get modulo
-    protected def self.divide_by_any(l : Any, r : Any)
-      # crystal can't divide an int by a float so we have to exit here
-      if l.raw.is_a?(Int) && !r.raw.is_a?(Int)
-        return nil
-      end
-
-      # the way crystal's divmod works with int's' is it doesn't like accept union types so if
-      # we're divmodding an int we need to explicitly pass an int value
-      if l.raw.is_a?(Int)
-        left = l.as_i
-        right = r.as_i
-        _, modulo = left.divmod(right)
-      else
-        left = l.as_f
-        if r.raw.is_a?(Int)
-          right = r.as_i
-        else
-          right = r.as_f
-        end
-        _, modulo = left.divmod(right)
-      end
-
-      modulo
+      left = NumberUtils.to_number(data)
+      right = NumberUtils.to_number(args.first)
+      NumberUtils.to_any(NumberUtils.apply(left, right, :%))
     end
   end
 
