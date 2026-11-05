@@ -93,13 +93,10 @@ class GoldenTest
 
   private def context_to_code(context : Liquid::Context) : String
     String.build do |str|
-      str << "Liquid::Context{"
+      str << "Liquid::Context.new"
       context.each do |key, value|
-        key.inspect(str)
-        str << " => " << any_to_code(value)
-        str << ", "
+        str << ".tap(&.set(" << key.inspect << ", " << any_to_code(value) << "))"
       end
-      str << "}"
     end
   end
 
